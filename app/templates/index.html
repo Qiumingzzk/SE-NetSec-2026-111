@@ -3,398 +3,533 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>代码安全扫描平台 | 反序列化漏洞检测</title>
-    <!-- Bootstrap 5 CSS + 图标库 -->
+    <title>代码安全扫描平台 | 漏洞检测</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
     <style>
-        body {
-            background: #f0f2f5;
-            font-family: 'Segoe UI', system-ui, -apple-system;
-        }
-        .card {
-            border-radius: 1rem;
-            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.05);
-            margin-bottom: 2rem;
-            border: none;
-        }
-        .card-header {
-            background-color: #fff;
-            border-bottom: 2px solid #e9ecef;
-            border-radius: 1rem 1rem 0 0 !important;
-            font-weight: 600;
-            padding: 1rem 1.5rem;
-        }
-        .severity-badge {
-            font-weight: 600;
-            padding: 0.3rem 0.7rem;
-            border-radius: 2rem;
-            font-size: 0.8rem;
-        }
+        body { background: #f0f2f5; font-family: 'Segoe UI', system-ui; }
+        .card { border-radius: 1rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.05); margin-bottom: 2rem; border: none; }
+        .card-header { background: #fff; border-bottom: 2px solid #e9ecef; border-radius: 1rem 1rem 0 0 !important; font-weight: 600; padding: 1rem 1.5rem; }
         .severity-high { background-color: #dc3545; color: white; }
         .severity-medium { background-color: #fd7e14; color: white; }
         .severity-low { background-color: #0d6efd; color: white; }
-        .table th {
-            background-color: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-        }
-        pre {
-            background: #1e1e2f;
-            color: #f8f8f2;
-            padding: 1rem;
-            border-radius: 0.8rem;
-            overflow-x: auto;
-        }
-        .footer {
-            text-align: center;
-            margin-top: 3rem;
-            color: #6c757d;
-        }
-        .loading-spinner {
-            display: inline-block;
-            width: 1rem;
-            height: 1rem;
-            border: 2px solid #0d6efd;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            margin-right: 0.5rem;
-        }
+        .badge-severity { padding: 0.3rem 0.7rem; border-radius: 2rem; font-size: 0.8rem; font-weight: 600; }
+        .table th { background-color: #f8f9fa; border-bottom: 2px solid #dee2e6; }
+        .loading-spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #0d6efd; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 0.5rem; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .issue-card {
-            transition: all 0.2s;
-        }
-        .issue-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1);
-        }
+        .progress { height: 0.8rem; border-radius: 1rem; }
+        .snippet-modal pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+        .btn-compare { background-color: #6f42c1; color: white; }
+        .btn-compare:hover { background-color: #5a32a3; }
     </style>
 </head>
 <body>
-    <div class="container py-4">
-        <!-- 头部 -->
-        <div class="text-center mb-4">
-            <h1 class="display-5 fw-bold">
-                <i class="bi bi-shield-lock-fill text-primary"></i> 代码安全扫描平台
-            </h1>
-            <p class="lead">基于 AST 的反序列化漏洞检测 | 支持 pickle / yaml / joblib / numpy</p>
-        </div>
 
-        <!-- 认证卡片 -->
-        <div class="card" id="auth-card">
-            <div class="card-header">
-                <i class="bi bi-person-circle"></i> 用户认证
-            </div>
-            <div class="card-body">
-                <!-- 登录表单 -->
-                <div id="login-form">
-                    <div class="mb-3">
-                        <label class="form-label">用户名</label>
-                        <input type="text" id="login-username" class="form-control" placeholder="请输入用户名">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">密码</label>
-                        <input type="password" id="login-password" class="form-control" placeholder="请输入密码">
-                    </div>
-                    <button onclick="login()" class="btn btn-primary w-100">
-                        <i class="bi bi-box-arrow-in-right"></i> 登录
-                    </button>
-                    <div class="text-center mt-3">
-                        <a href="#" onclick="showRegister()">还没有账号？立即注册</a>
-                    </div>
-                </div>
-                <!-- 注册表单（初始隐藏） -->
-                <div id="register-form" style="display: none;">
-                    <div class="mb-3">
-                        <label class="form-label">用户名</label>
-                        <input type="text" id="reg-username" class="form-control" placeholder="请输入用户名">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">密码</label>
-                        <input type="password" id="reg-password" class="form-control" placeholder="请输入密码">
-                    </div>
-                    <button onclick="register()" class="btn btn-success w-100">
-                        <i class="bi bi-person-plus"></i> 注册
-                    </button>
-                    <div class="text-center mt-3">
-                        <a href="#" onclick="showLogin()">返回登录</a>
-                    </div>
-                </div>
-                <!-- 登录后信息 -->
-                <div id="user-info" style="display: none;">
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle-fill"></i> 已登录：<strong id="username-display"></strong>
-                    </div>
-                    <button onclick="logout()" class="btn btn-outline-danger w-100">
-                        <i class="bi bi-box-arrow-left"></i> 登出
-                    </button>
-                </div>
-            </div>
-        </div>
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <h1 class="display-5 fw-bold"><i class="bi bi-shield-lock-fill text-primary"></i> 代码安全扫描平台</h1>
+        <p class="lead">基于 AST 的静态分析 | 反序列化 / 命令注入 / 动态代码执行检测</p>
+    </div>
 
-        <!-- 扫描卡片（仅登录后可见） -->
-        <div id="scan-card" class="card" style="display: none;">
-            <div class="card-header">
-                <i class="bi bi-search-heart"></i> 发起代码扫描
+    <!-- 认证卡片 -->
+    <div class="card" id="auth-card">
+        <div class="card-header"><i class="bi bi-person-circle"></i> 用户认证</div>
+        <div class="card-body">
+            <div id="login-form">
+                <div class="mb-3"><label class="form-label">用户名</label><input type="text" id="login-username" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">密码</label><input type="password" id="login-password" class="form-control"></div>
+                <button onclick="login()" class="btn btn-primary w-100">登录</button>
+                <div class="text-center mt-3"><a href="#" onclick="showRegister()">还没有账号？立即注册</a></div>
             </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">目标文件路径（容器内绝对路径或相对于 /app）</label>
-                    <input type="text" id="target-path" class="form-control" placeholder="例如: test_samples/vulnerable_samples.py">
-                    <div class="form-text text-muted">
-                        <i class="bi bi-info-circle"></i> 示例：test_samples/vulnerable_samples.py
-                    </div>
-                </div>
-                <button onclick="startScan()" class="btn btn-primary w-100" id="scanBtn">
-                    <i class="bi bi-play-fill"></i> 开始扫描
-                </button>
-                <div id="scan-loading" class="text-center mt-3" style="display: none;">
-                    <span class="loading-spinner"></span> 扫描中，请稍候...
-                </div>
+            <div id="register-form" style="display:none">
+                <div class="mb-3"><label class="form-label">用户名</label><input type="text" id="reg-username" class="form-control"></div>
+                <div class="mb-3"><label class="form-label">密码</label><input type="password" id="reg-password" class="form-control"></div>
+                <button onclick="register()" class="btn btn-success w-100">注册</button>
+                <div class="text-center mt-3"><a href="#" onclick="showLogin()">返回登录</a></div>
             </div>
-        </div>
-
-        <!-- 结果展示卡片（仅登录后可见） -->
-        <div id="result-card" class="card" style="display: none;">
-            <div class="card-header">
-                <i class="bi bi-bar-chart-steps"></i> 扫描结果
+            <div id="user-info" style="display:none">
+                <div class="alert alert-success">✅ 已登录：<strong id="username-display"></strong></div>
+                <button onclick="logout()" class="btn btn-outline-danger w-100">登出</button>
             </div>
-            <div class="card-body" id="result-content">
-                <p class="text-muted text-center">暂无扫描结果，请发起扫描。</p>
-            </div>
-        </div>
-
-        <div class="footer">
-            <i class="bi bi-github"></i> SE-NetSec-2026-111 | 基于 AST 的静态分析引擎
         </div>
     </div>
 
-    <script>
-        let token = localStorage.getItem('access_token');
+    <!-- 扫描卡片 -->
+    <div id="scan-card" class="card" style="display:none">
+        <div class="card-header"><i class="bi bi-search-heart"></i> 发起代码扫描</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">目标路径（文件或目录）</label>
+                <input type="text" id="target-path" class="form-control" placeholder="例如: test_samples/vulnerable_samples.py 或 test_samples/">
+                <div class="form-text text-muted">支持相对路径（相对于 /app）或绝对路径，自动跳过 __pycache__/venv/.git</div>
+            </div>
+            <div class="row">
+                <div class="col-md-8">
+                    <button onclick="startScan()" class="btn btn-primary w-100" id="scanBtn">开始扫描</button>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <input type="file" id="zipFile" class="form-control" accept=".zip">
+                        <button onclick="uploadZip()" class="btn btn-outline-secondary" type="button">上传ZIP</button>
+                    </div>
+                </div>
+            </div>
+            <div id="scan-loading" class="text-center mt-3" style="display:none;">
+                <span class="loading-spinner"></span> <span id="scan-message">扫描中，请稍候...</span>
+            </div>
+            <div id="progress-container" class="mt-2" style="display:none;">
+                <div class="progress">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+                </div>
+            </div>
+            <button id="cancelBtn" class="btn btn-danger mt-2" style="display:none;" onclick="cancelScan()">取消扫描</button>
+        </div>
+    </div>
 
-        // 初始化UI
-        function updateUI() {
-            if (token) {
-                document.getElementById('login-form').style.display = 'none';
-                document.getElementById('register-form').style.display = 'none';
-                document.getElementById('user-info').style.display = 'block';
-                document.getElementById('scan-card').style.display = 'block';
-                document.getElementById('result-card').style.display = 'block';
-                fetchUserInfo();
-            } else {
-                document.getElementById('login-form').style.display = 'block';
-                document.getElementById('register-form').style.display = 'none';
-                document.getElementById('user-info').style.display = 'none';
-                document.getElementById('scan-card').style.display = 'none';
-                document.getElementById('result-card').style.display = 'none';
-            }
-        }
+    <!-- 结果卡片 -->
+    <div id="result-card" class="card" style="display:none">
+        <div class="card-header"><i class="bi bi-bar-chart-steps"></i> 扫描结果</div>
+        <div class="card-body" id="result-content">
+            <p class="text-muted text-center">暂无扫描结果。</p>
+        </div>
+    </div>
 
-        async function fetchUserInfo() {
-            try {
-                const res = await fetch('/auth/profile', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    document.getElementById('username-display').innerText = data.username;
-                } else {
-                    logout();
-                }
-            } catch(e) { logout(); }
-        }
+    <!-- 历史记录卡片 -->
+    <div id="history-card" class="card" style="display:none">
+        <div class="card-header"><i class="bi bi-clock-history"></i> 历史扫描记录 <button id="compareBtn" class="btn btn-sm btn-compare float-end" disabled onclick="compareSelected()">对比选中</button></div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="history-table">
+                    <thead><tr><th><input type="checkbox" id="selectAllCheckbox"></th><th>任务名</th><th>目标路径</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+                    <tbody id="history-tbody"></tbody>
+                </table>
+            </div>
+            <div id="pagination-controls" class="mt-2 d-flex justify-content-between align-items-center">
+                <button class="btn btn-sm btn-outline-primary" id="prev-page" disabled>上一页</button>
+                <span id="page-info">第1页</span>
+                <button class="btn btn-sm btn-outline-primary" id="next-page" disabled>下一页</button>
+            </div>
+        </div>
+    </div>
 
-        async function login() {
-            const username = document.getElementById('login-username').value;
-            const password = document.getElementById('login-password').value;
-            const res = await fetch('/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                token = data.access_token;
-                localStorage.setItem('access_token', token);
-                updateUI();
-            } else {
-                alert('登录失败：' + (data.msg || '用户名或密码错误'));
-            }
-        }
+    <div class="footer text-muted text-center mt-4"><i class="bi bi-github"></i> SE-NetSec-2026-111 | 基于 AST 的静态分析引擎 v1.0</div>
+</div>
 
-        async function register() {
-            const username = document.getElementById('reg-username').value;
-            const password = document.getElementById('reg-password').value;
-            const res = await fetch('/auth/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                alert('注册成功，请登录');
-                showLogin();
-            } else {
-                alert('注册失败：' + (data.msg || '未知错误'));
-            }
-        }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+<script>
+    let token = localStorage.getItem('access_token');
+    let currentInterval = null;
+    let currentEventSource = null;
+    let currentTaskId = null;
+    let currentPage = 1;
+    let totalPages = 1;
+    let selectedTasks = [];
 
-        function logout() {
-            localStorage.removeItem('access_token');
-            token = null;
+    // ---------- 辅助函数 ----------
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // ---------- 认证相关 ----------
+    async function login() {
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+        const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            token = data.access_token;
+            localStorage.setItem('access_token', token);
             updateUI();
+            loadHistory(1);
+        } else {
+            alert('登录失败：' + (data.msg || '用户名或密码错误'));
         }
+    }
 
-        function showRegister() {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('register-form').style.display = 'block';
+    async function register() {
+        const username = document.getElementById('reg-username').value;
+        const password = document.getElementById('reg-password').value;
+        const res = await fetch('/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        if (res.ok) {
+            alert('注册成功，请登录');
+            showLogin();
+        } else {
+            const data = await res.json();
+            alert('注册失败：' + (data.msg || '未知错误'));
         }
+    }
 
-        function showLogin() {
-            document.getElementById('login-form').style.display = 'block';
-            document.getElementById('register-form').style.display = 'none';
-        }
+    function logout() {
+        localStorage.removeItem('access_token');
+        token = null;
+        selectedTasks = [];
+        updateUI();
+    }
 
-        // 扫描核心逻辑
-        let currentInterval = null;
+    function showRegister() {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+    }
 
-        async function startScan() {
-            const targetPath = document.getElementById('target-path').value.trim();
-            if (!targetPath) {
-                alert('请输入目标文件路径');
-                return;
-            }
-            const scanBtn = document.getElementById('scanBtn');
-            const loadingDiv = document.getElementById('scan-loading');
-            scanBtn.disabled = true;
-            loadingDiv.style.display = 'block';
-            document.getElementById('result-content').innerHTML = '<p class="text-muted text-center">扫描任务已提交，等待结果...</p>';
+    function showLogin() {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('register-form').style.display = 'none';
+    }
 
-            try {
-                const res = await fetch('/scan/start', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ target_path: targetPath })
-                });
+    async function fetchUserInfo() {
+        try {
+            const res = await fetch('/auth/profile', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
                 const data = await res.json();
-                if (res.ok) {
-                    const taskId = data.task_id;
-                    pollResult(taskId);
-                } else {
-                    loadingDiv.style.display = 'none';
-                    scanBtn.disabled = false;
-                    document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">启动失败: ${data.msg || '未知错误'}</div>`;
-                }
-            } catch (err) {
+                document.getElementById('username-display').innerText = data.username;
+            } else logout();
+        } catch(e) { logout(); }
+    }
+
+    // ---------- 历史记录与分页 ----------
+    async function loadHistory(page = 1) {
+        if (!token) return;
+        const res = await fetch(`/scan/history?page=${page}&per_page=5`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            totalPages = data.pages;
+            currentPage = data.page;
+            const tbody = document.getElementById('history-tbody');
+            tbody.innerHTML = '';
+            for (let t of data.tasks) {
+                let statusClass = '';
+                if (t.status === 'completed') statusClass = 'bg-success';
+                else if (t.status === 'running') statusClass = 'bg-primary';
+                else if (t.status === 'failed') statusClass = 'bg-danger';
+                else if (t.status === 'cancelled') statusClass = 'bg-secondary';
+                else statusClass = 'bg-warning';
+                const row = `<tr>
+                    <td><input type="checkbox" class="task-checkbox" value="${t.id}" onchange="toggleSelect(${t.id})"></td>
+                    <td>${escapeHtml(t.task_name)}</td>
+                    <td>${escapeHtml(t.target_path)}</td>
+                    <td><span class="badge ${statusClass}">${t.status}</span></td>
+                    <td>${new Date(t.created_at).toLocaleString()}</td>
+                    <td><button class="btn btn-sm btn-outline-info" onclick="viewHistoryResult(${t.id})">查看结果</button></td>
+                </tr>`;
+                tbody.insertAdjacentHTML('beforeend', row);
+            }
+            document.getElementById('page-info').innerText = `第${currentPage}页 / 共${totalPages}页`;
+            document.getElementById('prev-page').disabled = currentPage <= 1;
+            document.getElementById('next-page').disabled = currentPage >= totalPages;
+        }
+    }
+
+    document.getElementById('prev-page').addEventListener('click', () => { if (currentPage > 1) loadHistory(currentPage-1); });
+    document.getElementById('next-page').addEventListener('click', () => { if (currentPage < totalPages) loadHistory(currentPage+1); });
+    document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+        document.querySelectorAll('.task-checkbox').forEach(cb => cb.checked = e.target.checked);
+        selectedTasks = [];
+        document.querySelectorAll('.task-checkbox:checked').forEach(cb => selectedTasks.push(parseInt(cb.value)));
+        document.getElementById('compareBtn').disabled = selectedTasks.length !== 2;
+    });
+
+    function toggleSelect(taskId) {
+        if (selectedTasks.includes(taskId)) {
+            selectedTasks = selectedTasks.filter(id => id !== taskId);
+        } else if (selectedTasks.length < 2) {
+            selectedTasks.push(taskId);
+        } else {
+            alert('最多只能选择两个任务进行对比');
+            document.querySelector(`.task-checkbox[value="${taskId}"]`).checked = false;
+            return;
+        }
+        document.getElementById('compareBtn').disabled = selectedTasks.length !== 2;
+    }
+
+    async function viewHistoryResult(taskId) {
+        const res = await fetch(`/scan/result/${taskId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        if (data.status === 'completed') {
+            renderResults(data.result);
+            document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
+        } else {
+            alert('任务尚未完成或失败');
+        }
+    }
+
+    async function compareSelected() {
+        if (selectedTasks.length !== 2) return;
+        const [id1, id2] = selectedTasks;
+        const res = await fetch(`/scan/compare/${id1}/${id2}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        let html = `<h5>对比结果：</h5>`;
+        html += `<div class="mb-2"><strong>✅ 新增漏洞：${data.new.length}</strong><ul>${data.new.map(i => `<li>${i.filename}:${i.line_number} - ${i.issue_text}</li>`).join('')}</ul></div>`;
+        html += `<div class="mb-2"><strong>🔧 修复漏洞：${data.fixed.length}</strong><ul>${data.fixed.map(i => `<li>${i.filename}:${i.line_number} - ${i.issue_text}</li>`).join('')}</ul></div>`;
+        html += `<div><strong>⚠️ 持续存在：${data.persistent.length}</strong><ul>${data.persistent.map(i => `<li>${i.filename}:${i.line_number} - ${i.issue_text}</li>`).join('')}</ul></div>`;
+        document.getElementById('result-content').innerHTML = html;
+        document.getElementById('result-card').style.display = 'block';
+        document.getElementById('result-card').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ---------- 扫描相关 ----------
+    async function startScan() {
+        const targetPath = document.getElementById('target-path').value.trim();
+        if (!targetPath) { alert('请输入目标路径'); return; }
+        const scanBtn = document.getElementById('scanBtn');
+        const loadingDiv = document.getElementById('scan-loading');
+        const progressContainer = document.getElementById('progress-container');
+        const cancelBtn = document.getElementById('cancelBtn');
+        scanBtn.disabled = true;
+        loadingDiv.style.display = 'block';
+        progressContainer.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        document.getElementById('result-content').innerHTML = '<p class="text-muted text-center">扫描任务已提交，等待结果...</p>';
+
+        try {
+            const res = await fetch('/scan/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ target_path: targetPath })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                currentTaskId = data.task_id;
+                cancelBtn.style.display = 'inline-block';
+                progressContainer.style.display = 'block';
+                setupSSE(currentTaskId);
+                pollResult(currentTaskId);
+            } else {
                 loadingDiv.style.display = 'none';
                 scanBtn.disabled = false;
-                document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">请求异常: ${err.message}</div>`;
+                document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">启动失败: ${data.msg || '未知错误'}</div>`;
             }
+        } catch (err) {
+            loadingDiv.style.display = 'none';
+            scanBtn.disabled = false;
+            document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">请求异常: ${err.message}</div>`;
         }
+    }
 
-        function pollResult(taskId) {
-            if (currentInterval) clearInterval(currentInterval);
-            currentInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/scan/result/${taskId}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    if (data.status === 'completed') {
-                        clearInterval(currentInterval);
-                        currentInterval = null;
-                        document.getElementById('scan-loading').style.display = 'none';
-                        document.getElementById('scanBtn').disabled = false;
-                        renderResults(data.result);
-                    } else if (data.status === 'failed') {
-                        clearInterval(currentInterval);
-                        currentInterval = null;
-                        document.getElementById('scan-loading').style.display = 'none';
-                        document.getElementById('scanBtn').disabled = false;
-                        document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">扫描失败: ${data.result?.error || '未知错误'}</div>`;
-                    }
-                } catch (err) {
-                    // 忽略网络错误，继续轮询
-                }
-            }, 2000);
+    function setupSSE(taskId) {
+        if (currentEventSource) currentEventSource.close();
+        const url = `/scan/progress/${taskId}?token=${token}`;
+        currentEventSource = new EventSource(url);
+        currentEventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const progressBar = document.getElementById('progress-bar');
+            const progressContainer = document.getElementById('progress-container');
+            if (data.progress >= 0) {
+                progressBar.style.width = data.progress + '%';
+                progressBar.innerText = data.progress + '%';
+                document.getElementById('scan-message').innerText = data.message || '扫描中...';
+                progressContainer.style.display = 'block';
+            }
+            if (data.status === 'completed' || data.status === 'failed') {
+                currentEventSource.close();
+                currentEventSource = null;
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('scan-loading').style.display = 'none';
+                document.getElementById('scanBtn').disabled = false;
+            }
+        };
+        currentEventSource.onerror = function() {
+            currentEventSource.close();
+            currentEventSource = null;
+        };
+    }
+
+    function pollResult(taskId) {
+    if (currentInterval) clearInterval(currentInterval);
+    currentInterval = setInterval(async () => {
+        try {
+            const res = await fetch(`/scan/result/${taskId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            console.log("Poll result:", data);  // 关键日志，帮助调试
+
+            if (data.status === 'completed') {
+                clearInterval(currentInterval);
+                currentInterval = null;
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('scan-loading').style.display = 'none';
+                document.getElementById('scanBtn').disabled = false;
+                renderResults(data.result);
+                loadHistory(currentPage);
+            } else if (data.status === 'failed' || data.status === 'cancelled') {
+                clearInterval(currentInterval);
+                currentInterval = null;
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('cancelBtn').style.display = 'none';
+                document.getElementById('scan-loading').style.display = 'none';
+                document.getElementById('scanBtn').disabled = false;
+                document.getElementById('result-content').innerHTML = `<div class="alert alert-danger">扫描失败: ${data.result?.error || '未知错误'}</div>`;
+            } else {
+                // 仍然 running 或 pending
+                console.log("Waiting for completion...");
+            }
+        } catch (err) {
+            console.error("Poll error:", err);
         }
+    }, 2000);
+}
 
-        // 渲染漏洞列表（清晰表格）
-        function renderResults(banditOutput) {
-            const container = document.getElementById('result-content');
-            if (!banditOutput || !banditOutput.results || banditOutput.results.length === 0) {
-                container.innerHTML = `
-                    <div class="alert alert-success text-center">
-                        <i class="bi bi-check-circle-fill"></i> 未检测到不安全反序列化问题
+    async function cancelScan() {
+        if (!currentTaskId) return;
+        const res = await fetch(`/scan/cancel/${currentTaskId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            alert('已请求取消扫描');
+            if (currentEventSource) currentEventSource.close();
+            document.getElementById('cancelBtn').style.display = 'none';
+        } else {
+            alert('取消失败');
+        }
+    }
+
+    async function uploadZip() {
+        const fileInput = document.getElementById('zipFile');
+        const file = fileInput.files[0];
+        if (!file) { alert('请选择ZIP文件'); return; }
+        const formData = new FormData();
+        formData.append('file', file);
+        const scanBtn = document.getElementById('scanBtn');
+        const loadingDiv = document.getElementById('scan-loading');
+        scanBtn.disabled = true;
+        loadingDiv.style.display = 'block';
+        try {
+            const res = await fetch('/scan/upload_zip', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                currentTaskId = data.task_id;
+                document.getElementById('cancelBtn').style.display = 'inline-block';
+                document.getElementById('progress-container').style.display = 'block';
+                setupSSE(currentTaskId);
+                pollResult(currentTaskId);
+            } else {
+                alert('上传失败：' + (data.msg || '未知错误'));
+                scanBtn.disabled = false;
+                loadingDiv.style.display = 'none';
+            }
+        } catch (err) {
+            alert('上传异常');
+            scanBtn.disabled = false;
+            loadingDiv.style.display = 'none';
+        }
+    }
+
+    async function exportResult(taskId) {
+        const res = await fetch(`/scan/export/${taskId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scan_${taskId}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } else {
+            alert('导出失败');
+        }
+    }
+
+    async function showCodeSnippet(filePath, line) {
+        const res = await fetch(`/scan/snippet?file=${encodeURIComponent(filePath)}&line=${line}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.snippet) {
+            const highlighted = Prism.highlight(data.snippet, Prism.languages.python, 'python');
+            const modalHtml = `
+                <div class="modal fade" id="snippetModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header"><h5>${escapeHtml(data.file)}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body"><pre class="line-numbers"><code class="language-python">${escapeHtml(data.snippet)}</code></pre></div>
+                        </div>
                     </div>
-                `;
-                return;
-            }
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById('snippetModal'));
+            modal.show();
+            document.getElementById('snippetModal').addEventListener('hidden.bs.modal', function() { this.remove(); });
+            Prism.highlightAllUnder(document.getElementById('snippetModal'));
+        } else {
+            alert('无法获取代码片段');
+        }
+    }
 
-            const issues = banditOutput.results;
-            // 统计严重程度
-            let highCount = issues.filter(i => i.severity === 'HIGH').length;
-            let mediumCount = issues.filter(i => i.severity === 'MEDIUM').length;
-            let lowCount = issues.filter(i => i.severity === 'LOW').length;
-
-            let html = `
-                <div class="mb-3">
-                    <span class="badge bg-danger">高危 ${highCount}</span>
-                    <span class="badge bg-warning text-dark">中危 ${mediumCount}</span>
-                    <span class="badge bg-info">低危 ${lowCount}</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>行号</th>
-                                <th>严重程度</th>
-                                <th>测试名称</th>
-                                <th>漏洞描述</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            for (let issue of issues) {
-                let severityClass = issue.severity === 'HIGH' ? 'severity-high' : (issue.severity === 'MEDIUM' ? 'severity-medium' : 'severity-low');
-                let severityText = issue.severity;
-                html += `
-                    <tr>
+    function renderResults(banditOutput) {
+        const container = document.getElementById('result-content');
+        if (!banditOutput || !banditOutput.results || banditOutput.results.length === 0) {
+            container.innerHTML = '<div class="alert alert-success text-center">未检测到不安全反序列化问题</div>';
+            return;
+        }
+        const issues = banditOutput.results;
+        let high = issues.filter(i => i.severity === 'HIGH').length;
+        let medium = issues.filter(i => i.severity === 'MEDIUM').length;
+        let low = issues.filter(i => i.severity === 'LOW').length;
+        let html = `<div class="mb-3"><span class="badge bg-danger">高危 ${high}</span> <span class="badge bg-warning text-dark">中危 ${medium}</span> <span class="badge bg-info">低危 ${low}</span>
+                    <button class="btn btn-sm btn-outline-secondary float-end" onclick="exportResult(${currentTaskId})">导出 CSV</button></div>
+                    <div class="table-responsive"><table class="table table-bordered table-hover"><thead><tr><th>行号</th><th>严重程度</th><th>测试名称</th><th>漏洞描述</th><th>操作</th></tr></thead><tbody>`;
+        for (let issue of issues) {
+            let sevClass = issue.severity === 'HIGH' ? 'severity-high' : (issue.severity === 'MEDIUM' ? 'severity-medium' : 'severity-low');
+            html += `<tr>
                         <td class="text-center">${issue.line_number || '?'}</td>
-                        <td><span class="severity-badge ${severityClass}">${severityText}</span></td>
+                        <td><span class="badge-severity ${sevClass}">${issue.severity}</span></td>
                         <td><code>${issue.test_name || 'detect_insecure_deserialization'}</code></td>
                         <td>${escapeHtml(issue.issue_text)}</td>
-                    </tr>
-                `;
-            }
-            html += `</tbody></table></div>`;
-            // 附加原始 JSON 折叠信息（可选）
-            html += `
-                <details class="mt-3">
-                    <summary class="text-muted">查看原始 JSON 输出</summary>
-                    <pre class="mt-2">${escapeHtml(JSON.stringify(banditOutput, null, 2))}</pre>
-                </details>
-            `;
-            container.innerHTML = html;
+                        <td><button class="btn btn-sm btn-outline-info" onclick="showCodeSnippet('${issue.filename}', ${issue.line_number})">查看代码</button></td>
+                    </tr>`;
         }
+        html += `</tbody></table></div><details class="mt-3"><summary>原始 JSON</summary><pre>${escapeHtml(JSON.stringify(banditOutput, null, 2))}</pre></details>`;
+        container.innerHTML = html;
+        document.getElementById('result-card').style.display = 'block';
+    }
 
-        // 简单的防XSS转义
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-                return c;
-            });
+    // ---------- UI 状态同步 ----------
+    function updateUI() {
+        if (token) {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('scan-card').style.display = 'block';
+            document.getElementById('result-card').style.display = 'block';
+            document.getElementById('history-card').style.display = 'block';
+            fetchUserInfo();
+            loadHistory(currentPage);
+        } else {
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('scan-card').style.display = 'none';
+            document.getElementById('result-card').style.display = 'none';
+            document.getElementById('history-card').style.display = 'none';
         }
+    }
 
-        updateUI();
-    </script>
+    updateUI();
+</script>
 </body>
 </html>

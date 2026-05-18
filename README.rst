@@ -154,3 +154,23 @@ markdown
 =======
 
 >>>>>>> b1b19cb379f16a65d9325cf0c8b8130bc375ac7d
+# 代码安全扫描平台 - v1.0
+
+## 功能列表
+- ✅ 单文件 / 目录递归扫描
+- ✅ ZIP 压缩包上传扫描
+- ✅ 检测不安全反序列化（pickle, yaml, joblib, numpy）
+- ✅ 检测危险动态代码执行（eval, exec）
+- ✅ 检测系统命令注入（os.system, subprocess）
+- ✅ 扫描结果对比（新增/修复/持续）
+- ✅ 实时进度推送（SSE）
+- ✅ 结果导出 CSV
+- ✅ 代码片段高亮显示
+- ✅ 历史记录分页
+- ✅ Docker 一键部署
+
+## 快速开始
+```bash
+git clone https://github.com/Qiumingzzk/SE-NetSec-2026-111
+cd SE-NetSec-2026-111
+docker-compose up -d

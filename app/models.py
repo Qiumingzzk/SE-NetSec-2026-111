@@ -17,7 +17,8 @@ class ScanTask(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     task_name = db.Column(db.String(100), nullable=False)
     target_path = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending')   # pending/running/completed/failed/cancelled
+    cancel_requested = db.Column(db.Boolean, default=False)
     result = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)

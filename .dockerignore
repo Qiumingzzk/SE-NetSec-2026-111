@@ -4,5 +4,6 @@ __pycache__
 .env
 .git
 .DS_Store
-mysql_data
 *.log
+migrations
+uploads

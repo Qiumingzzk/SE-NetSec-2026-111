@@ -9,7 +9,7 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - mysql_data:/var/lib/mysql   # 命名卷，正确
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -43,6 +43,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - .:/app                     # 挂载当前目录到 /app，正常
+      - .:/app
+
 volumes:
-  mysql_data:                       # 声明命名卷
+  mysql_data:
